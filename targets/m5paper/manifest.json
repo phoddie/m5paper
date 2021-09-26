@@ -1,0 +1,17 @@
+{
+	"include": [
+		"$(MODDABLE)/modules/io/manifest.json"
+	],
+	"modules": {
+		"setup/target": "./setup-target",
+		"embedded:sensor/touch/GT911": "./gt911"
+	},
+	"preload": [
+		"embedded:sensor/touch/GT911",
+		"setup/target"
+	],
+	"config": {
+	},
+	"defines": {
+	}
+}
