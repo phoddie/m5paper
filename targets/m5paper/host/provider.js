@@ -75,19 +75,27 @@ const device = {
 			constructor(options) {
 				let result;
 
-				options = {
-					...options,
-					...device.I2C.default
+				const o = {
+					i2c: {
+						...device.I2C.default,
+					},
+					interrupt: {
+						io: Digital,
+						mode: Digital.Input,
+						pin: device.pin.touchInterrupt
+					}
 				};
+				if (options?.onSample)
+					o.onSample = options.onSample; 
 
 				// I2C address floats: try both
 				try {
-					options.address = 0x14;
-					result = new Touch(options);
+					o.i2c.address = 0x14;
+					result = new Touch(o);
 				}
 				catch {
-					options.address = 0x5D;
-					result = new Touch(options);
+					o.i2c.address = 0x5D;
+					result = new Touch(o);
 				}
 
 				return result;

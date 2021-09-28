@@ -18,11 +18,6 @@ export default function (done) {
 		}),
 	};
 	
-	globalThis.temp = new Digital({		//@@
-		pin: device.pin.touchInterrupt,
-		mode: Digital.Input	
-	});
-	
 	power.main.write(1);
 	power.external.write(1);
 	power.epd.write(1);

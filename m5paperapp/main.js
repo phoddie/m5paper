@@ -1,16 +1,16 @@
 import Timer from "timer";
 
-const touch = new device.sensor.Touch;
+const touch = new device.sensor.Touch({
+	onSample() {
+		const points = this.sample();
 
-System.setInterval(() => {
-	const points = touch.sample();
-
-	points?.forEach((point, i) => {
-		const id = point.id;
-		delete point.id;
-		trace(`Point ${id}: ${JSON.stringify(point)}\n`);
-	});
-}, 33);
+		points?.forEach((point, i) => {
+			const id = point.id;
+			delete point.id;
+			trace(`Point ${id}: ${JSON.stringify(point)}\n`);
+		});
+	}
+})
 
 /*
 	EPD driver reference: https://github.com/m5stack/M5EPD/blob/63f6eb34697b0120e68d279fe0e22e5ec3aba61b/src/M5EPD_Driver.cpp

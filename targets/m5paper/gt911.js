@@ -21,26 +21,37 @@
 import Timer from "timer";
 
 //@@ more buffers
-//@@ interrrupt support
 
 class GT911 {
 	#io;
 	#byteBuffer = new Uint8Array(1);
 
 	constructor(options) {
-		const io = this.#io = new options.io({
+		const i2c = options.i2c;
+		const io = this.#io = new i2c.io({
 			hz: 200_000,		// ....data sheet warns about speeds over 200_000
 			address: 0x5D,
-			...options
+			...i2c
 		});
 
 		// check id
 		io.write(Uint8Array.of(0x81, 0x40));
 		const data = new Uint8Array(io.read(3));
-		const id = String.fromCharCode(data[0]) + String.fromCharCode(data[1]) + String.fromCharCode(data[2]);
-		if ("911" !== id)
+		if ((57 !== data[0]) || (49 !== data[1]) || (49 !== data[2]))
 			throw new Error("unrecognized");
 
+		// set-up interrupt
+		const interrupt = options.interrupt;
+		const onSample = options.onSample;
+		if (interrupt && onSample) {
+			io.interrupt = new interrupt.io({
+				...interrupt,
+				edge: interrupt.io.Falling,
+				onReadable: onSample.bind(this)
+			});
+		}
+
+		// program configuration
 		if (options?.config) {
 			const start = 0x8047, end = 0x80FF;
 			const config = options.config;
@@ -87,10 +98,11 @@ class GT911 {
 	}
 	close() {
 		this.#io?.close();
+		this.#io.interrupt?.close();
 		this.#io = undefined;
 	}
 	configure() {
-		//@@ set length... maybe fix-up below
+		//@@ set length...
 		//@@ other config?
 	}
 	sample() {
@@ -110,10 +122,8 @@ class GT911 {
 
 		const result = new Array(touchCount);
 		for (let i = 0; i < touchCount; i++) {
-			const offset = i * 8;
+			const offset = i << 3;
 			const id = data[offset];
-			if (id && (1 === io.length))
-				continue;
 
 			let x = (data[offset + 1] | (data[offset + 2] << 8));
 			let y = (data[offset + 3] | (data[offset + 4] << 8));
@@ -126,7 +136,6 @@ class GT911 {
 
 		return result;
 	}
-
 }
 
 export default GT911;
