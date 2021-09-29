@@ -85,6 +85,8 @@ class EPD {
 	_endian_type;
 	_pix_bpp;
 // _direction -- unused. always 1
+	_endian_type = IT8951_LDIMG_L_ENDIAN;
+	_pix_bpp = IT8951_4BPP;
 
 	constructor() {
 		const Digital = device.io.Digital;
@@ -103,11 +105,10 @@ class EPD {
 
 		this.spi = new SPI({
 			...device.SPI.default,
-			hz: 10_000_000,
-//			select: 4,		//@@  _epd_spi->begin(sck, miso, mosi, 4);... but that 4 (cs/SS) appears to be unused... and 4 seems to be CS for SD Card
+			hz: 10_000_000
 		});
 		this.spi.write16 = function(value) {
-			this.write(Uint8Array.of(value >> 8, value & 0xFF));			// according to IT9051 data sheet section 7.4.2 - values are big endian
+			this.write(Uint8Array.of(value >> 8, value & 0xFF));
 		}; 
 		this.spi.transfer16 = function(value) {
 			const buffer = Uint8Array.of(value >> 8, value & 0xFF);
@@ -135,38 +136,8 @@ class EPD {
 		this.select?.close();
 		this.busy?.close();
 	}
-	clear(init) {
-		this._endian_type = IT8951_LDIMG_L_ENDIAN;
-		this._pix_bpp = IT8951_4BPP;
-/*
-		this.setTargetMemoryAddress(this._tar_memaddr);
-        this.setArea(0, 0, M5EPD_PANEL_W, M5EPD_PANEL_H);
-
-		if (1) {
-			const pixels = new Uint16Array(M5EPD_PANEL_W >> 2);
-			pixels.fill(0xFF);
-			const buffer = pixels.buffer, spi = this.spi;
-
-			this.select.write(0);
-			for (let i = 0; i < M5EPD_PANEL_H; i++)
-				spi.write(buffer);
-			this.select.write(1);
-		}
-		else {
-			let count = (M5EPD_PANEL_W * M5EPD_PANEL_H) >> 2;
-			const buffer = Uint8Array.of(0xFF, 0xFF, 0, 0).buffer;
-			const select = this.select, spi = this.spi;
-			select.write(0);
-			do {
-				spi.write(buffer);
-			} while (--count);
-			select.write(1);
-		}
-
-		this.writeCommand(IT8951_TCON_LD_IMG_END);
-*/
-		if (init)
-			this.updateFull(UpdateMode.INIT);
+	clear() {
+		this.updateFull(UpdateMode.INIT);
 	}
 	updateFull(mode) {
         this.updateArea(0, 0, M5EPD_PANEL_W, M5EPD_PANEL_H, mode);
@@ -194,11 +165,12 @@ class EPD {
 		this.setTargetMemoryAddress(this._tar_memaddr);
         this.setArea(x, y, w, h);
 
-		const pixels = new Uint32Array(w >> 2);
+		const pixels = new Uint16Array(w >> 2);
 		pixels.fill(color | (color << 4) | (color << 8) | (color << 12));
 		const buffer = pixels.buffer, spi = this.spi;
 
 		this.select.write(0);
+		spi.write(Uint16Array.of(0))
 		while (h--)
 			spi.write(buffer);
 		this.select.write(1);
@@ -229,24 +201,21 @@ class EPD {
 			x, y, w, h); 
 		this.writeArgs(IT8951_TCON_LD_IMG_AREA, area);
 	}
-	writeArgs(command, buffer) {		// matches reference
+	writeArgs(command, buffer) {
 		this.writeCommand(command);
 
-		for (let i = 0; i < buffer.length; i++)
-			this.writeWord(buffer[i]);
+		this.waitBusy();
+		this.select.write(0);
+		this.spi.write16(0x0000);
+		this.waitBusy();
 
-//		this.waitBusy();
-//		this.select.write(0);
-//		this.spi.write16(0x0000);
-//		this.waitBusy();
-//
-//		for (let i = 0; i < buffer.length; i++) {
-//			this.spi.write16(buffer[i]);
-//			this.waitBusy();
-//		}
-//		this.select.write(1);
+		for (let i = 0; i < buffer.length; i++) {
+			this.spi.write16(buffer[i]);
+			this.waitBusy();
+		}
+		this.select.write(1);
 	}
-	writeCommand(command) {	// matches reference
+	writeCommand(command) {
 		this.waitBusy();
 		this.select.write(0);
 		this.spi.write16(0x6000);
@@ -261,12 +230,12 @@ class EPD {
     	this.writeRegister(IT8951_LISAR + 2, h);
     	this.writeRegister(IT8951_LISAR, l);
 	}
-	writeRegister(register, value) {	// matches reference
+	writeRegister(register, value) {
 //		this.writeCommand(0x0011);
 //		this.writeWord(register);
 //		this.writeWord(value);
 
-//		this.writeCommand(0x0011); //tcon write reg command
+		this.writeCommand(0x0011); //tcon write reg command
 
 		this.waitBusy();
 		this.select.write(0);
@@ -289,7 +258,7 @@ class EPD {
 		if ((M5EPD_PANEL_W !== info[0]) || (M5EPD_PANEL_H !== info[1]))
 			trace("unexpected panel dimensions\n");
 	}
-	writeWord(value) {	// matches reference
+	writeWord(value) {
 		this.waitBusy();
 		this.select.write(0);
 		this.spi.write16(0x0000);
@@ -335,9 +304,13 @@ class EPD {
  */
 
 const e = new EPD;
-e.clear(true);
+e.clear();
 
-for (let c = 0; c < 15; c++) {
-	e.fillArea(c * 52, 0, 52, 200, c);
-	e.updateArea(c * 52, 0, 52, 200, UpdateMode.GL16);
+e.fillArea(0, 0, M5EPD_PANEL_W, M5EPD_PANEL_H, 8);
+e.updateArea(0, 0, M5EPD_PANEL_W, M5EPD_PANEL_H, UpdateMode.GC16);
+
+for (let c = 0; c < 16; c++) {
+	e.fillArea(c * 60, 0, 60, M5EPD_PANEL_H >> 1, c);
+	e.fillArea(c * 60, M5EPD_PANEL_H >> 1, 60, M5EPD_PANEL_H >> 1, 15 - c);
 }
+e.updateArea(0, 0, M5EPD_PANEL_W, M5EPD_PANEL_H, UpdateMode.GC16);

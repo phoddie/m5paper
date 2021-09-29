@@ -1,7 +1,7 @@
 # Moddable SDK support for M5Paper
-Updated September 28, 2021
+Updated September 29, 2021
 
-This is experimental. The display is starting to work. Feel free to help.
+This is experimental. The display fundamentals are working. Feel free to help.
 
 The Moddable SDK examples that do not depend on a display generally seem to work as-is.
 
@@ -18,7 +18,7 @@ Then `cd` to the `m5paperapp` directory and build as usual:
 ```
 mcconfig -d -m -p esp32/m5paper
 ```
-The test app attempts (and fails) to clear the display. This is unoptimized and takes a few seconds. After that, it scans the touch screen and traces touch events to the xsbug console.
+The test app clears the display and draws a gray ramp. After that, it waits for touch interrupts and traces touch events to the xsbug console.
 
 ## macOS
 
@@ -29,7 +29,7 @@ The USB driver situation for M5Paper on macOS is ugly:
 
 ## EPD Notes
 
-EPD display driver implemented. It is able to initialize the screen. It can fill rectangles, but the color is wrong. It looks like the memory writes aren't working. For development convenience, the `EPD` class is built into `main.js`.
+EPD display driver implemented. It is able to initialize the screen. It can fill rectangles. For development convenience, the `EPD` class is built into `main.js`.
 
 The reference driver used to guide this implementation is [here](https://github.com/m5stack/M5EPD/blob/63f6eb34697b0120e68d279fe0e22e5ec3aba61b/src/M5EPD_Driver.cpp). The organization is similar. Once it works, it can be restructured for ease of integration with Poco and Piu.
 
@@ -43,10 +43,10 @@ The data sheet is included in this [repository](./documentation).
 - Sending 16-bit words in big endian byte order (as per data sheet)
 - Confirmed that SPI writes are synchronous
 - Reset pin is unused in M5Paper configuration
-- It is slow (32 bits at a time!). Currently using bulk writes  to fill for speed (result is wrong either way)
-- UpdateMode.init always erases to white (it seems). There's no need to clear the memory buffer first.
+- The reference driver is slow (writes 4 pixels per transation). Currently using bulk writes  to fill for speed.
+- UpdateMode.init always erases to white. There's no need to clear the memory buffer first.
 - Most functions implemented except rotation (only rotation 0 for now) and write to GRAM (draw bitmap to screen)
-- Handling of chip-select is different between M5Paper implementation and data sheet. Current implementation matches the data sheet. which toggles it less often. Previously the reference driver behavior was implemented.
+- Handling of chip-select is different between M5Paper implementation and data sheet. Current implementation matches the data sheet. which toggles it less often.
 
 ## Help
 
