@@ -76,9 +76,7 @@ const device = {
 				let result;
 
 				const o = {
-					i2c: {
-						...device.I2C.default,
-					},
+					i2c: {...device.I2C.default},
 					interrupt: {
 						io: Digital,
 						mode: Digital.Input,

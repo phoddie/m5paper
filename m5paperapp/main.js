@@ -2,14 +2,8 @@ import Timer from "timer";
 
 const touch = new device.sensor.Touch({
 	onSample() {
-		const points = this.sample();
-
-		points?.forEach((point, i) => {
-			const id = point.id;
-			delete point.id;
-			trace(`Point ${id}: ${JSON.stringify(point)}\n`);
-		});
-	}
+		trace(JSON.stringify(this.sample()), "\n");
+		}
 })
 
 /*
@@ -113,7 +107,6 @@ class EPD {
 //			select: 4,		//@@  _epd_spi->begin(sck, miso, mosi, 4);... but that 4 (cs/SS) appears to be unused... and 4 seems to be CS for SD Card
 		});
 		this.spi.write16 = function(value) {
-//			this.write(Uint8Array.of(value & 0xFF, value >> 8));
 			this.write(Uint8Array.of(value >> 8, value & 0xFF));			// according to IT9051 data sheet section 7.4.2 - values are big endian
 		}; 
 		this.spi.transfer16 = function(value) {
@@ -122,7 +115,6 @@ class EPD {
 			return (buffer[0] << 8) | buffer[1];
 		}; 
 		this.spi.write32 = function(value) {
-//			this.write(Uint8Array.of(value & 0xFF, value >> 8, value >> 16, value >> 24));
 			this.write(Uint8Array.of(value >> 24, value >> 16, value >> 8, value & 0xFF));
 		}; 
 
@@ -143,24 +135,36 @@ class EPD {
 		this.select?.close();
 		this.busy?.close();
 	}
-	clear(init = false) {
+	clear(init) {
 		this._endian_type = IT8951_LDIMG_L_ENDIAN;
 		this._pix_bpp = IT8951_4BPP;
-
+/*
 		this.setTargetMemoryAddress(this._tar_memaddr);
         this.setArea(0, 0, M5EPD_PANEL_W, M5EPD_PANEL_H);
 
-		let count = (M5EPD_PANEL_W * M5EPD_PANEL_H) >> 2;
-		const buffer = Uint8Array.of(0xFF, 0xFF, 0, 0).buffer;
-		const select = this.select, spi = this.spi;
-		do {
-            select.write(0);
-            spi.write(buffer);
-            select.write(1);
-		} while (--count);
+		if (1) {
+			const pixels = new Uint16Array(M5EPD_PANEL_W >> 2);
+			pixels.fill(0xFF);
+			const buffer = pixels.buffer, spi = this.spi;
+
+			this.select.write(0);
+			for (let i = 0; i < M5EPD_PANEL_H; i++)
+				spi.write(buffer);
+			this.select.write(1);
+		}
+		else {
+			let count = (M5EPD_PANEL_W * M5EPD_PANEL_H) >> 2;
+			const buffer = Uint8Array.of(0xFF, 0xFF, 0, 0).buffer;
+			const select = this.select, spi = this.spi;
+			select.write(0);
+			do {
+				spi.write(buffer);
+			} while (--count);
+			select.write(1);
+		}
 
 		this.writeCommand(IT8951_TCON_LD_IMG_END);
-		
+*/
 		if (init)
 			this.updateFull(UpdateMode.INIT);
 	}
@@ -180,6 +184,27 @@ class EPD {
 				throw new Error("time out");
 		}
 	}
+	fillArea(x, y, w, h, color) {
+		if (w & 3)
+			throw new Error;
+
+		if ((color < 0) || (color > 15))
+			throw new Error;
+	
+		this.setTargetMemoryAddress(this._tar_memaddr);
+        this.setArea(x, y, w, h);
+
+		const pixels = new Uint32Array(w >> 2);
+		pixels.fill(color | (color << 4) | (color << 8) | (color << 12));
+		const buffer = pixels.buffer, spi = this.spi;
+
+		this.select.write(0);
+		while (h--)
+			spi.write(buffer);
+		this.select.write(1);
+
+		this.writeCommand(IT8951_TCON_LD_IMG_END);
+	}
 	updateArea(x, y, w, h, mode) {
 		if (UpdateMode.NONE === mode)
 			return;
@@ -189,9 +214,9 @@ class EPD {
 
 		this.checkAFSR();
 
-        if(x + w > M5EPD_PANEL_W)
+        if (x + w > M5EPD_PANEL_W)
             w = M5EPD_PANEL_W - x;
-        if(y + h > M5EPD_PANEL_H)
+        if (y + h > M5EPD_PANEL_H)
             h = M5EPD_PANEL_H - y;
 
 		const args = Uint16Array.of(x, y, w, h, mode, this._dev_memaddr_l, this._dev_memaddr_h);
@@ -204,17 +229,24 @@ class EPD {
 			x, y, w, h); 
 		this.writeArgs(IT8951_TCON_LD_IMG_AREA, area);
 	}
-	writeArgs(command, buffer) {
+	writeArgs(command, buffer) {		// matches reference
 		this.writeCommand(command);
 
-		this.select.write(0);
-		this.spi.write16(0x0000);
-
 		for (let i = 0; i < buffer.length; i++)
-			this.spi.write16(buffer[i]);
-		this.select.write(1);
+			this.writeWord(buffer[i]);
+
+//		this.waitBusy();
+//		this.select.write(0);
+//		this.spi.write16(0x0000);
+//		this.waitBusy();
+//
+//		for (let i = 0; i < buffer.length; i++) {
+//			this.spi.write16(buffer[i]);
+//			this.waitBusy();
+//		}
+//		this.select.write(1);
 	}
-	writeCommand(command) {
+	writeCommand(command) {	// matches reference
 		this.waitBusy();
 		this.select.write(0);
 		this.spi.write16(0x6000);
@@ -229,8 +261,12 @@ class EPD {
     	this.writeRegister(IT8951_LISAR + 2, h);
     	this.writeRegister(IT8951_LISAR, l);
 	}
-	writeRegister(register, value) {
-		this.writeCommand(0x0011); //tcon write reg command
+	writeRegister(register, value) {	// matches reference
+//		this.writeCommand(0x0011);
+//		this.writeWord(register);
+//		this.writeWord(value);
+
+//		this.writeCommand(0x0011); //tcon write reg command
 
 		this.waitBusy();
 		this.select.write(0);
@@ -246,11 +282,14 @@ class EPD {
 		const info = this.readWords(20);
 		let _dev_memaddr_l = info[2];
 		let _dev_memaddr_h = info[3];
-		let _tar_memaddr = (_dev_memaddr_h << 16) | _dev_memaddr_l;
-		if (0 === _tar_memaddr)
-			trace(`_tar_memaddr looks incorrect 0x${_tar_memaddr.toString(16)}\n`);
+		const _tar_memaddr = (_dev_memaddr_h << 16) | _dev_memaddr_l;
+		if (_tar_memaddr !== this._tar_memaddr)
+			trace(`unexpected _tar_memaddr value 0x${_tar_memaddr.toString(16)}\n`);
+		
+		if ((M5EPD_PANEL_W !== info[0]) || (M5EPD_PANEL_H !== info[1]))
+			trace("unexpected panel dimensions\n");
 	}
-	writeWord(value) {
+	writeWord(value) {	// matches reference
 		this.waitBusy();
 		this.select.write(0);
 		this.spi.write16(0x0000);
@@ -258,12 +297,15 @@ class EPD {
 		this.spi.write16(value);
 		this.select.write(1);
 	}
-	waitBusy(timeout = 3000) {
-		const start = Date.now();
-		while (true) {
-			if (this.busy.read())
-				return;
+	waitBusy(timeout) {
+		if (this.busy.read())
+			return;
 
+		if (!timeout)
+			timeout = 3000;
+
+		const start = Date.now();
+		while (!this.busy.read()) {
 			if ((Date.now() - start) > timeout)
 				throw new Error("time out");
 		}
@@ -278,7 +320,7 @@ class EPD {
 		this.spi.transfer16(0);
     	this.waitBusy();
 
-		let result = new Array(length);
+		const result = new Array(length);
 		for (let i = 0; i < length; i++)
 			result[i] = this.spi.transfer16(0);
 
@@ -292,5 +334,10 @@ class EPD {
 	App reference:  https://github.com/m5stack/M5EPD/blob/63f6eb34697b0120e68d279fe0e22e5ec3aba61b/examples/Basics/Button/Button.ino#L13
  */
 
-let e = new EPD;
+const e = new EPD;
 e.clear(true);
+
+for (let c = 0; c < 15; c++) {
+	e.fillArea(c * 52, 0, 52, 200, c);
+	e.updateArea(c * 52, 0, 52, 200, UpdateMode.GL16);
+}

@@ -1,7 +1,7 @@
 # Moddable SDK support for M5Paper
-Updated September 26, 2021
+Updated September 28, 2021
 
-This is experimental. The display doesn't work yet. Feel free to help.
+This is experimental. The display is starting to work. Feel free to help.
 
 The Moddable SDK examples that do not depend on a display generally seem to work as-is.
 
@@ -29,13 +29,13 @@ The USB driver situation for M5Paper on macOS is ugly:
 
 ## EPD Notes
 
-EPD display driver implemented. No luck. No response from display. For development convenience, the `EPD` class is built into `main.js`.
+EPD display driver implemented. It is able to initialize the screen. It can fill rectangles, but the color is wrong. It looks like the memory writes aren't working. For development convenience, the `EPD` class is built into `main.js`.
 
 The reference driver used to guide this implementation is [here](https://github.com/m5stack/M5EPD/blob/63f6eb34697b0120e68d279fe0e22e5ec3aba61b/src/M5EPD_Driver.cpp). The organization is similar. Once it works, it can be restructured for ease of integration with Poco and Piu.
 
 The data sheet is included in this [repository](./documentation).
 
-- Double checked pins numbers
+- Pin numbers are correct - both SPI read and write work
 - Using VSPI_HOST (like reference driver)
 - Confirmed that most-significant bit is sent first (MSBFIRST) (like reference driver)
 - Confirmed SPI Mode 0 used (SPI_MODE0)  (like reference driver)
@@ -43,8 +43,11 @@ The data sheet is included in this [repository](./documentation).
 - Sending 16-bit words in big endian byte order (as per data sheet)
 - Confirmed that SPI writes are synchronous
 - Reset pin is unused in M5Paper configuration
-- It is slow (32 bits at a time!)
+- It is slow (32 bits at a time!). Currently using bulk writes  to fill for speed (result is wrong either way)
+- UpdateMode.init always erases to white (it seems). There's no need to clear the memory buffer first.
 - Most functions implemented except rotation (only rotation 0 for now) and write to GRAM (draw bitmap to screen)
-- Doing `power.epd.write(0)` (instead of `power.epd.write(1)`) in targets/m5paper/set-up/target causes timeout on first write operation, so... apparently there is something connected to the `epdBusy` pin
 - Handling of chip-select is different between M5Paper implementation and data sheet. Current implementation matches the data sheet. which toggles it less often. Previously the reference driver behavior was implemented.
-- Like the reference implementation, this calls `waitBusy` at places that data sheet suggests are unnecessary (probably harmless, but slower)
+
+## Help
+
+Thank you to Andy Carle for noticing that the io/spi module wasn't using the pin numbers passed to it.

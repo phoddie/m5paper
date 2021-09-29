@@ -27,7 +27,7 @@ class GT911 {
 	#byteBuffer = new Uint8Array(1);
 
 	constructor(options) {
-		const i2c = options.i2c;
+		const {i2c, interrupt, onSample, config} = options;
 		const io = this.#io = new i2c.io({
 			hz: 200_000,		// ....data sheet warns about speeds over 200_000
 			address: 0x5D,
@@ -40,10 +40,8 @@ class GT911 {
 		if ((57 !== data[0]) || (49 !== data[1]) || (49 !== data[2]))
 			throw new Error("unrecognized");
 
-		// set-up interrupt
-		const interrupt = options.interrupt;
-		const onSample = options.onSample;
-		if (interrupt && onSample) {
+		// set-up interrupt (will throw if onSample is no given (which is consistent with spec)
+		if (interrupt) {
 			io.interrupt = new interrupt.io({
 				...interrupt,
 				edge: interrupt.io.Falling,
@@ -52,9 +50,8 @@ class GT911 {
 		}
 
 		// program configuration
-		if (options?.config) {
+		if (config) {
 			const start = 0x8047, end = 0x80FF;
-			const config = options.config;
 			if (config.length !== (end - start))
 				throw new Error("bad config");
 
@@ -122,7 +119,7 @@ class GT911 {
 
 		const result = new Array(touchCount);
 		for (let i = 0; i < touchCount; i++) {
-			const offset = i << 3;
+			const offset = i * 8;
 			const id = data[offset];
 
 			let x = (data[offset + 1] | (data[offset + 2] << 8));
