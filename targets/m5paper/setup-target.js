@@ -22,7 +22,5 @@ export default function (done) {
 	power.external.write(1);
 	power.epd.write(1);
 
-	Timer.delay(1000);		//@@ really!
-
 	done();
 }

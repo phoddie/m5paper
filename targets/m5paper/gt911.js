@@ -40,8 +40,8 @@ class GT911 {
 		if ((57 !== data[0]) || (49 !== data[1]) || (49 !== data[2]))
 			throw new Error("unrecognized");
 
-		// set-up interrupt (will throw if onSample is no given (which is consistent with spec)
-		if (interrupt) {
+		// set-up interrupt
+		if (interrupt && onSample) {
 			io.interrupt = new interrupt.io({
 				...interrupt,
 				edge: interrupt.io.Falling,

@@ -1,9 +1,11 @@
 import Timer from "timer";
+import Poco from "commodetto/Poco";
+import Bitmap from "commodetto/Bitmap";
 
 const touch = new device.sensor.Touch({
 	onSample() {
 		trace(JSON.stringify(this.sample()), "\n");
-		}
+	}
 })
 
 /*
@@ -77,11 +79,8 @@ const UpdateMode = {
     NONE:     8
 };        // The ones marked with * are more commonly used
 
-
 class EPD {
 	_tar_memaddr = 0x001236E0;
-	_dev_memaddr_l = 0x36E0;
-	_dev_memaddr_h = 0x0012;
 	_endian_type;
 	_pix_bpp;
 // _direction -- unused. always 1
@@ -135,6 +134,10 @@ class EPD {
 		this.spi?.close();
 		this.select?.close();
 		this.busy?.close();
+
+		delete this.spi;
+		delete this.select;
+		delete this.busy;
 	}
 	clear() {
 		this.updateFull(UpdateMode.INIT);
@@ -144,7 +147,7 @@ class EPD {
 	}
 	checkAFSR() {
 		const start = Date.now();
-		while (true) { 
+		do { 
 			this.writeCommand(IT8951_TCON_REG_RD);
 			this.writeWord(IT8951_LUTAFSR);
 			const info = this.readWords(1);
@@ -153,7 +156,7 @@ class EPD {
 
 			if ((Date.now() - start) > 3000)
 				throw new Error("time out");
-		}
+		} while (true);
 	}
 	fillArea(x, y, w, h, color) {
 		if (w & 3)
@@ -191,7 +194,7 @@ class EPD {
         if (y + h > M5EPD_PANEL_H)
             h = M5EPD_PANEL_H - y;
 
-		const args = Uint16Array.of(x, y, w, h, mode, this._dev_memaddr_l, this._dev_memaddr_h);
+		const args = Uint16Array.of(x, y, w, h, mode, this._tar_memaddr, this._tar_memaddr >> 16);
 		this.writeArgs(IT8951_I80_CMD_DPY_BUF_AREA, args);
 	}	
 	
@@ -231,10 +234,6 @@ class EPD {
     	this.writeRegister(IT8951_LISAR, l);
 	}
 	writeRegister(register, value) {
-//		this.writeCommand(0x0011);
-//		this.writeWord(register);
-//		this.writeWord(value);
-
 		this.writeCommand(0x0011); //tcon write reg command
 
 		this.waitBusy();
@@ -249,9 +248,7 @@ class EPD {
 	getSysInfo() {
     	this.writeCommand(IT8951_I80_CMD_GET_DEV_INFO);
 		const info = this.readWords(20);
-		let _dev_memaddr_l = info[2];
-		let _dev_memaddr_h = info[3];
-		const _tar_memaddr = (_dev_memaddr_h << 16) | _dev_memaddr_l;
+		const _tar_memaddr = (info[3] << 16) | info[2];
 		if (_tar_memaddr !== this._tar_memaddr)
 			trace(`unexpected _tar_memaddr value 0x${_tar_memaddr.toString(16)}\n`);
 		
@@ -285,7 +282,7 @@ class EPD {
     	this.spi.write16(0x1000);
     	this.waitBusy();
 
-		//dummy
+		// dummy
 		this.spi.transfer16(0);
     	this.waitBusy();
 
@@ -299,18 +296,102 @@ class EPD {
 	}
 }
 
+class Display {
+	#epd;
+	#area;
+
+	constructor(options) {
+		this.#epd = new EPD;
+		this.#epd.setTargetMemoryAddress(this.#epd._tar_memaddr);	
+	}
+	close() {
+		this.#epd?.close();
+		this.#epd = undefined;
+	}
+	configure(options) {
+	}
+	begin(x, y, width, height) {
+		const epd = this.#epd;
+
+		const area = this.#area = {x, y, width, height};
+		if ((area.x | area.width) & 3)
+			throw new Error;
+
+        epd.setArea(area.x, area.y, area.width, area.height);
+
+		epd.select.write(0);
+		epd.spi.write(Uint16Array.of(0))
+	}
+	send(data) {
+		this.#epd.spi.write(data);
+	}
+	end() {
+		const epd = this.#epd;
+
+		epd.select.write(1);
+		epd.writeCommand(IT8951_TCON_LD_IMG_END);
+
+		const area = this.#area;
+		epd.updateArea(area.x, area.y, area.width, area.height, UpdateMode.GC16);
+	}
+	adaptInvalid(area) {
+		if (area.x & 3) {
+			area.width += area.x & 3;
+			area.x &= ~3;
+		}
+		area.width = (area.width + 3) & ~3;
+	}
+	clear() {
+		this.#epd.updateFull(UpdateMode.INIT);
+	}
+	get width() {
+		return M5EPD_PANEL_W;
+	}
+	get height() {
+		return M5EPD_PANEL_H;
+	}
+	get pixelFormat() {
+		return Bitmap.Gray16;
+	}
+	pixelsToBytes(pixels) {
+		return (pixels + 1) >> 1;
+	}
+}
+
 /*
 	App reference:  https://github.com/m5stack/M5EPD/blob/63f6eb34697b0120e68d279fe0e22e5ec3aba61b/examples/Basics/Button/Button.ino#L13
  */
 
-const e = new EPD;
-e.clear();
+if (0) {
+	const e = new EPD;
+	e.clear();
 
-e.fillArea(0, 0, M5EPD_PANEL_W, M5EPD_PANEL_H, 8);
-e.updateArea(0, 0, M5EPD_PANEL_W, M5EPD_PANEL_H, UpdateMode.GC16);
+	e.fillArea(0, 0, M5EPD_PANEL_W, M5EPD_PANEL_H, 8);
+	e.updateArea(0, 0, M5EPD_PANEL_W, M5EPD_PANEL_H, UpdateMode.GC16);
 
-for (let c = 0; c < 16; c++) {
-	e.fillArea(c * 60, 0, 60, M5EPD_PANEL_H >> 1, c);
-	e.fillArea(c * 60, M5EPD_PANEL_H >> 1, 60, M5EPD_PANEL_H >> 1, 15 - c);
+	for (let c = 0; c < 16; c++) {
+		e.fillArea(c * 60, 0, 60, M5EPD_PANEL_H >> 1, c);
+		e.fillArea(c * 60, M5EPD_PANEL_H >> 1, 60, M5EPD_PANEL_H >> 1, 15 - c);
+	}
+	e.updateArea(0, 0, M5EPD_PANEL_W, M5EPD_PANEL_H, UpdateMode.GC16);
 }
-e.updateArea(0, 0, M5EPD_PANEL_W, M5EPD_PANEL_H, UpdateMode.GC16);
+else {
+	const d = new Display;
+	const render = new Poco(d, {pixels: d.width * 16});
+
+	const black = render.makeColor(0, 0, 0);
+	const white = render.makeColor(255, 255, 255);
+
+	render.begin();
+		render.fillRectangle(black, 0, 0, render.width, render.height);
+
+		render.clip(20, 20, render.width - 40, render.height - 40);
+		render.fillRectangle(white, 0, 0, render.width, render.height);
+
+		render.clip(100, 100, render.width - 200, render.height - 200);
+		render.fillRectangle(render.makeColor(128, 128, 128), 0, 0, render.width, render.height);
+
+		render.clip();
+		render.clip();
+	render.end();
+}

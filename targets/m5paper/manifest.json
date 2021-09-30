@@ -11,5 +11,6 @@
 		"setup/target"
 	],
 	"config": {
+		"format": "Gray16"
 	}
 }

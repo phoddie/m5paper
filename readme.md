@@ -18,7 +18,7 @@ Then `cd` to the `m5paperapp` directory and build as usual:
 ```
 mcconfig -d -m -p esp32/m5paper
 ```
-The test app clears the display and draws a gray ramp. After that, it waits for touch interrupts and traces touch events to the xsbug console.
+The test app draws three rectangles using Poco. After that, it waits for touch interrupts and traces touch events to the xsbug console.
 
 ## macOS
 
@@ -43,10 +43,11 @@ The data sheet is included in this [repository](./documentation).
 - Sending 16-bit words in big endian byte order (as per data sheet)
 - Confirmed that SPI writes are synchronous
 - Reset pin is unused in M5Paper configuration
-- The reference driver is slow (writes 4 pixels per transation). Currently using bulk writes  to fill for speed.
+- The reference driver is slow (writes 4 pixels per translation). This implementation uses bulk writes for speed.
 - UpdateMode.init always erases to white. There's no need to clear the memory buffer first.
 - Most functions implemented except rotation (only rotation 0 for now) and write to GRAM (draw bitmap to screen)
 - Handling of chip-select is different between M5Paper implementation and data sheet. Current implementation matches the data sheet. which toggles it less often.
+- Implemented Commodetto PixelsOut for rendering with Poco
 
 ## Help
 
