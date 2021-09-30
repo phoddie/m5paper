@@ -95,10 +95,8 @@ Object.freeze(UpdateMode, true);
 
 class EPD {
 	_tar_memaddr = 0x001236E0;
-	_endian_type;
 	_pix_bpp;
-// _direction -- unused. always 1
-	_endian_type = IT8951_LDIMG_L_ENDIAN;
+	_endian_type = IT8951_LDIMG_B_ENDIAN;
 	_pix_bpp = IT8951_4BPP;
 	_rotation = 0;
 
@@ -329,13 +327,12 @@ class Display {		// implementation of PixelsOut
 	begin(x, y, width, height) {
 		const epd = this.#epd, area = this.#area;
 
-//@@ rotation
 		if (this.#epd._rotation & 1) { 
-			if ((x | width) & 3)
+			if ((y | height) & 3)
 				throw new Error;
 		}
 		else {
-			if ((y | height) & 3)
+			if ((x | width) & 3)
 				throw new Error;
 		}
 
