@@ -3,14 +3,17 @@
 		"$(MODDABLE)/modules/io/manifest.json"
 	],
 	"modules": {
-		"setup/target": "./setup-target",
-		"embedded:sensor/touch/GT911": "./gt911"
+		"embedded:sensor/touch/GT911": "./gt911",
+		"it8951": "./it8951",
+		"setup/target": "./setup-target"
 	},
 	"preload": [
 		"embedded:sensor/touch/GT911",
+		"it8951",
 		"setup/target"
 	],
 	"config": {
-		"format": "Gray16"
+		"format": "Gray16",
+		"screen": "it8951"
 	}
 }
