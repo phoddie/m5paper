@@ -336,7 +336,23 @@ class Display {		// implementation of PixelsOut
 				throw new Error;
 		}
 
-		area.x = x, area.y = y, area.width = width, area.height = height;
+		if (area.continue) {
+			if (x < area.x) {
+				area.width += area.x - x;
+				area.x = x;
+			}
+			if ((x + width) > (area.x + area.width))
+				area.width = (x + width) - area.x;
+
+			if (y < area.y) {
+				area.height += area.y - y;
+				area.y = y;
+			}
+			if ((y + height) > (area.y + area.height))
+				area.height = (y + height) - area.y;
+		}
+		else
+			area.x = x, area.y = y, area.width = width, area.height = height;
 
         epd.setArea(x, y, width, height);
 
@@ -354,6 +370,16 @@ class Display {		// implementation of PixelsOut
 
 		const area = this.#area;
 		epd.updateArea(area.x, area.y, area.width, area.height, UpdateMode.GC16);
+
+		delete area.continue;
+	}
+	continue() {
+		const epd = this.#epd;
+
+		epd.select.write(1);
+		epd.writeCommand(IT8951_TCON_LD_IMG_END);
+
+		this.#area.continue = true;
 	}
 	adaptInvalid(area) {
 		if (this.#epd._rotation & 1) {
@@ -396,6 +422,5 @@ class Display {		// implementation of PixelsOut
 		return (pixels + 1) >> 1;
 	}
 }
-Display.prototype.continue = Display.prototype.end; 
 
 export default Display 
