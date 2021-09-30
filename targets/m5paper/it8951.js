@@ -100,6 +100,7 @@ class EPD {
 // _direction -- unused. always 1
 	_endian_type = IT8951_LDIMG_L_ENDIAN;
 	_pix_bpp = IT8951_4BPP;
+	_rotation = 0;
 
 	constructor() {
 		const Digital = device.io.Digital;
@@ -198,23 +199,24 @@ class EPD {
 		if (UpdateMode.NONE === mode)
 			return;
 
-		// rounded up to be multiple of 4
-		x = (x + 3) & ~3;
-
 		this.checkAFSR();
 
-        if (x + w > M5EPD_PANEL_W)
-            w = M5EPD_PANEL_W - x;
-        if (y + h > M5EPD_PANEL_H)
-            h = M5EPD_PANEL_H - y;
+		let rotation = this._rotation, args;
+        if (!rotation)
+			args = Uint16Array.of(x, y, w, h, mode, this._tar_memaddr, this._tar_memaddr >> 16);
+		else if (1 === rotation)
+			args = Uint16Array.of(y, M5EPD_PANEL_H - w - x, h, w, mode, this._tar_memaddr, this._tar_memaddr >> 16);
+		else if (2 === rotation)
+			args = Uint16Array.of(M5EPD_PANEL_W - w - x, M5EPD_PANEL_H - h - y, w, h, mode, this._tar_memaddr, this._tar_memaddr >> 16);
+		else
+			args = Uint16Array.of(M5EPD_PANEL_W - h - y, x, h, w, mode, this._tar_memaddr, this._tar_memaddr >> 16);
 
-		const args = Uint16Array.of(x, y, w, h, mode, this._tar_memaddr, this._tar_memaddr >> 16);
 		this.writeArgs(IT8951_I80_CMD_DPY_BUF_AREA, args);
 	}	
 	
 	setArea(x, y, w, h) {
 		const area = Uint16Array.of(
-			(this._endian_type << 8) | (this._pix_bpp << 4),
+			(this._endian_type << 8) | (this._pix_bpp << 4) | this._rotation,
 			x, y, w, h); 
 		this.writeArgs(IT8951_TCON_LD_IMG_AREA, area);
 	}
@@ -310,10 +312,9 @@ class EPD {
 	}
 }
 
-class Display {
+class Display {		// implementation of PixelsOut
 	#epd = new EPD;
 	#area = {};
-	#rotation = 0;
 
 	constructor(options) {
 		this.#epd.setTargetMemoryAddress(this.#epd._tar_memaddr);	
@@ -323,12 +324,20 @@ class Display {
 		this.#epd = undefined;
 	}
 	configure(options) {
+		//@@ updateMode 
 	}
 	begin(x, y, width, height) {
 		const epd = this.#epd, area = this.#area;
 
-		if ((x | width) & 3)
-			throw new Error;
+//@@ rotation
+		if (this.#epd._rotation & 1) { 
+			if ((x | width) & 3)
+				throw new Error;
+		}
+		else {
+			if ((y | height) & 3)
+				throw new Error;
+		}
 
 		area.x = x, area.y = y, area.width = width, area.height = height;
 
@@ -350,20 +359,38 @@ class Display {
 		epd.updateArea(area.x, area.y, area.width, area.height, UpdateMode.GC16);
 	}
 	adaptInvalid(area) {
-		if (area.x & 3) {
-			area.w += area.x & 3;
-			area.x &= ~3;
+		if (this.#epd._rotation & 1) {
+			if (area.y & 3) {
+				area.h += area.y & 3;
+				area.y &= ~3;
+			}
+			area.h = (area.h + 3) & ~3;
 		}
-		area.w = (area.w + 3) & ~3;
+		else {
+			if (area.x & 3) {
+				area.w += area.x & 3;
+				area.x &= ~3;
+			}
+			area.w = (area.w + 3) & ~3;
+		}
 	}
 	clear() {
 		this.#epd.updateFull(UpdateMode.INIT);
 	}
 	get width() {
-		return (this.#rotation & 1) ? M5EPD_PANEL_H : M5EPD_PANEL_W;
+		return (this.#epd._rotation & 1) ? M5EPD_PANEL_H : M5EPD_PANEL_W;
 	}
 	get height() {
-		return (this.#rotation & 1) ? M5EPD_PANEL_W : M5EPD_PANEL_H;
+		return (this.#epd._rotation & 1) ? M5EPD_PANEL_W : M5EPD_PANEL_H;
+	}
+	set rotation(value) {
+		const rotation = Math.idiv(value, 90);
+		if (rotation & ~3)
+			throw new Error;
+		this.#epd._rotation = rotation;
+	}
+	get rotation() {
+		return this.#epd._rotation * 90;
 	}
 	get pixelFormat() {
 		return Bitmap.Gray16;

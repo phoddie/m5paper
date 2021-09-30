@@ -1,5 +1,5 @@
 # Moddable SDK support for M5Paper
-Updated September 29, 2021
+Updated September 30, 2021
 
 This is experimental. The display fundamentals are working. Feel free to help.
 
@@ -45,8 +45,8 @@ The data sheet is included in this [repository](./documentation).
 - Reset pin is unused in M5Paper configuration
 - The reference driver is slow (writes 4 pixels per translation). This implementation uses bulk writes for speed.
 - UpdateMode.init always erases to white. There's no need to clear the memory buffer first.
-- Most functions implemented except rotation (only rotation 0 for now) and write to GRAM (draw bitmap to screen)
 - Handling of chip-select is different between M5Paper implementation and data sheet. Current implementation matches the data sheet. which toggles it less often.
+- Rotation implemented
 - Implemented Commodetto PixelsOut for rendering with Poco
 
 ## Help

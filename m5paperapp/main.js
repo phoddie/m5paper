@@ -7,20 +7,29 @@ const touch = new device.sensor.Touch({
 	}
 })
 
-const render = new Poco(screen, {pixels: screen.width * 16});
+screen.clear();
 
-const black = render.makeColor(0, 0, 0);
-const white = render.makeColor(255, 255, 255);
+for (let rotation = 0; rotation < 360; rotation += 90) {
+	screen.rotation = rotation;
 
-render.begin();
-	render.fillRectangle(black, 0, 0, render.width, render.height);
+	const render = new Poco(screen, {pixels: screen.width * 16});
 
-	render.clip(20, 20, render.width - 40, render.height - 40);
-	render.fillRectangle(white, 0, 0, render.width, render.height);
+	const black = render.makeColor(0, 0, 0);
+	const white = render.makeColor(255, 255, 255);
+	const gray = render.makeColor(128, 128, 128);
 
-	render.clip(100, 100, render.width - 200, render.height - 200);
-	render.fillRectangle(render.makeColor(128, 128, 128), 0, 0, render.width, render.height);
+	render.begin();
+		render.fillRectangle(black, 0, 0, render.width, render.height);
 
-	render.clip();
-	render.clip();
-render.end();
+		render.clip(20, 20, render.width - 40, render.height - 40);
+		render.fillRectangle(white, 0, 0, render.width, render.height);
+
+		render.clip(100, 100, render.width - 200, render.height - 200);
+		render.fillRectangle(gray, 0, 0, render.width, render.height);
+
+		render.clip();
+		render.clip();
+
+		render.fillRectangle(gray, 0, 0, 60, 60);
+	render.end();
+}
