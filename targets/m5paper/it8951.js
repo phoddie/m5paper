@@ -80,7 +80,7 @@ const IT8951_MCSR =                 (IT8951_MCSR_BASE_ADDR + 0x0000);
 const IT8951_LISAR =                (IT8951_MCSR_BASE_ADDR + 0x0008);
 
 const UpdateMode = {
-                             //   Ghosting  Update Time  Usage
+				  //   Ghosting  Update Time  Usage
     INIT:     0,  // * N/A       2000ms       Display initialization, 
     DU:       1,  //   Low       260ms        Monochrome menu, text input, and touch screen input 
     GC16:     2,  // * Very Low  450ms        High quality images
@@ -137,7 +137,7 @@ class EPD {
 		this.writeRegister(IT8951_I80CPCR, 0x0001); // enable pack write
 
 		//set vcom to -2.30v
-		this.writeCommand(0x0039); // tcon vcom set command
+		this.writeCommand(IT8951_I80_CMD_VCOM);
 		this.writeWord(0x0001);
 		this.writeWord(2300);
 
@@ -248,7 +248,7 @@ class EPD {
     	this.writeRegister(IT8951_LISAR, l);
 	}
 	writeRegister(register, value) {
-		this.writeCommand(0x0011); //tcon write reg command
+		this.writeCommand(IT8951_TCON_REG_WR);
 
 		this.waitBusy();
 		this.select.write(0);

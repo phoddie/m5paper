@@ -5,7 +5,7 @@ const touch = new device.sensor.Touch({
 	onSample() {
 		trace(JSON.stringify(this.sample()), "\n");
 	}
-})
+});
 
 const humidityTemperature = new device.sensor.HumidityTemperature;
 trace(JSON.stringify(humidityTemperature.sample(), undefined , 3), "\n");

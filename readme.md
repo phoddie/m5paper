@@ -48,6 +48,7 @@ The data sheet is included in this [repository](./documentation).
 - Handling of chip-select is different between M5Paper implementation and data sheet. Current implementation matches the data sheet. which toggles it less often.
 - Rotation implemented
 - Implemented Commodetto PixelsOut for rendering with Poco
+- PixelsOut implements `continue` by unioning update areas
 
 ## Help
 
