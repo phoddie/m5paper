@@ -7,6 +7,10 @@ const touch = new device.sensor.Touch({
 	}
 })
 
+const humidityTemperature = new device.sensor.HumidityTemperature;
+trace(JSON.stringify(humidityTemperature.sample(), undefined , 3), "\n");
+humidityTemperature.close();
+
 screen.clear();
 
 for (let rotation = 0; rotation < 360; rotation += 90) {

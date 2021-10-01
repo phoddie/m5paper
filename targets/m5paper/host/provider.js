@@ -28,7 +28,7 @@ import Serial from "embedded:io/serial";
 import SMBus from "embedded:io/smbus";
 import SPI from "embedded:io/spi";
 import Touch from "embedded:sensor/touch/GT911";
-
+import HumidityTemperature from "embedded:sensor/Humidity-Temperature/SHT3x"
 
 const device = {
 	I2C: {
@@ -97,6 +97,15 @@ const device = {
 				}
 
 				return result;
+			}
+		},
+		HumidityTemperature: class {
+			constructor(options) {
+				return new HumidityTemperature({
+					sensor: {
+						...device.I2C.default
+					}
+				});
 			}
 		}
 	},
