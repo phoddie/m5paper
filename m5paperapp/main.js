@@ -1,5 +1,4 @@
 import Poco from "commodetto/Poco";
-import Bitmap from "commodetto/Bitmap";
 
 const touch = new device.sensor.Touch({
 	onSample() {
@@ -10,6 +9,14 @@ const touch = new device.sensor.Touch({
 const humidityTemperature = new device.sensor.HumidityTemperature;
 trace(JSON.stringify(humidityTemperature.sample(), undefined , 3), "\n");
 humidityTemperature.close();
+
+for (let name in device.peripheral.button) {
+	new device.peripheral.button[name]({
+		onPush() {
+			trace(`Button ${name}: ${this.pressed}\n`);
+		}
+	})
+}
 
 screen.clear();
 

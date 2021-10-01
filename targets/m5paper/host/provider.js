@@ -30,6 +30,37 @@ import SPI from "embedded:io/spi";
 import Touch from "embedded:sensor/touch/GT911";
 import HumidityTemperature from "embedded:sensor/Humidity-Temperature/SHT3x"
 
+class Button {
+	#io;
+	#onPush;
+
+	constructor(options) {
+		options = {...options};
+		if (options.onReadable || options.onWritable || options.onError)
+			throw new Error;
+
+		if (options.target)
+			this.target = options.target;
+
+		const Digital = options.io;
+		if (options.onPush) {
+			this.#onPush = options.onPush; 
+			options.onReadable = () => this.#onPush();
+			options.edge = Digital.Rising | Digital.Falling;
+		}
+
+		this.#io = new Digital(options);
+		this.#io.pressed = options.invert ? 0 : 1;
+	}
+	close() {
+		this.#io?.close();
+		this.#io = undefined;
+	}
+	get pressed() {
+		return (this.#io.read() === this.#io.pressed) ? 1 : 0;
+	}
+}
+
 const device = {
 	I2C: {
 		default: {
@@ -110,6 +141,41 @@ const device = {
 		}
 	},
 	peripheral: {
+		button: {
+			A: class {
+				constructor(options) {
+					return new Button({
+						...options,
+						io: Digital,
+						pin: 38,
+						mode: Digital.InputPullUp,
+						invert: true					
+					});
+				}
+			},
+			B: class {
+				constructor(options) {
+					return new Button({
+						...options,
+						io: Digital,
+						pin: 37,
+						mode: Digital.InputPullUp,
+						invert: true					
+					});
+				}
+			},
+			C: class {
+				constructor(options) {
+					return new Button({
+						...options,
+						io: Digital,
+						pin: 39,
+						mode: Digital.InputPullUp,
+						invert: true					
+					});
+				}
+			}
+		}
 	}
 };
 
