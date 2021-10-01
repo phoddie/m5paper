@@ -1,13 +1,11 @@
 # Moddable SDK support for M5Paper
-Updated September 30, 2021
+Updated October 1, 2021
 
 This is experimental. The display fundamentals are working. Feel free to help.
 
 The Moddable SDK examples that do not depend on a display generally seem to work as-is.
 
-This porting effort depends on the new APIs defined by [Ecma-419](https://419.ecma-international.org). This implementation depends on fixes in the latest Moddable SDK.
-
-There is a working GT911 touch driver. The I2C address of the GT911 floats. The implementation tries both addresses 0x14 and 0x5D. Handled in host provider's Touch constructor -- not in driver and not in user script If 0x14 fails, an exception is thrown before it retries at 0x5D. If you encounter this, just hit Go in xsbug.
+This porting effort depends on the new APIs standardized by [Ecma-419](https://419.ecma-international.org). This implementation depends on fixes in the latest Moddable SDK.
 
 ## Setup, build, run
 
@@ -27,11 +25,35 @@ The USB driver situation for M5Paper on macOS is ugly:
 - Run at least macOS Big Sur
 - Install the driver referenced in this [issue](https://github.com/Xinyuan-LilyGO/LilyGo-T-Call-SIM800/issues/139#issuecomment-904390716)
 
-## EPD Notes
+## Porting Status
 
-EPD display driver implemented. It is able to initialize the screen. It can fill rectangles. For development convenience, the `EPD` class is built into `main.js`.
+The following are implemented and working:
 
-The reference driver used to guide this implementation is [here](https://github.com/m5stack/M5EPD/blob/63f6eb34697b0120e68d279fe0e22e5ec3aba61b/src/M5EPD_Driver.cpp). The organization is similar. Once it works, it can be restructured for ease of integration with Poco and Piu.
+- EPD display driver
+- GT911 touch driver
+- SHT30 temperature/humidity sensor
+- A / B / C buttons 
+- RTC (not yet integrated)
+
+> *Note*: The I2C address of the GT911 touch controller floats. The implementation tries both addresses 0x14 and 0x5D. This is handled in host provider's Touch constructor -- not in driver and not in user script If 0x14 fails, an exception is thrown before it retries at 0x5D. If you encounter this, just hit Go in xsbug.
+
+## Display Driver
+
+The display driver is a [Poco `PixelsOut`](https://github.com/Moddable-OpenSource/moddable/blob/public/documentation/commodetto/commodetto.md#pixelsout-class) implementation. This allows it to use both the [Poco](https://github.com/Moddable-OpenSource/moddable/blob/public/documentation/commodetto/poco.md) graphics APIs and[ Piu](https://github.com/Moddable-OpenSource/moddable/blob/public/documentation/piu/piu.md) user interface framework from the Moddable SDK.
+
+While many existing Poco and Piu examples run with the EPD, most are not practical. Because they were designed for a small color LCD with a high refresh rate, their appearance on a big gray display with a low refresh rate is often silly. We need some examples designed for this display.
+
+The display driver is written entirely in JavaScript. It uses [Ecma-419 IO](https://419.ecma-international.org/#-9-io-class-pattern) APIs for all hardware access. Performance is excellent, often faster than the EPD class built into the native M5Paper library. One reason for this is that Poco can render directly to 4-bit gray pixels, eliminating the need for pixel format conversion. Another reason is that the SPI transfers to the display controller bulk transfer of thousands of pixels at a time, rather than four at a time. This reduces the number of bits transferred by over half.
+
+Memory use is also quite low. There is no frame buffer in ESP32 memory: rendered pixels are sent directly to the display from a 16 line render buffer (about 8 KB).
+
+Using the `continue` feature of Poco, it is possible to update several areas of the screen while only refreshing the EPD panel once. This allows for very efficient updates -- the least possible amount of memory is transferred and only one long panel flash occurs. The Piu balls example is a good way to see this in action - only the ball images (not the empty space around them) are transferred to the display and only the rectangle that encloses the four balls flashes on the display panel.
+
+The rotation feature of the display controller is supported, allowing no-overhead rotation at 0, 90, 180, and 270 rotations.
+
+### Notes
+
+The reference driver used to guide this implementation is [here](https://github.com/m5stack/M5EPD/blob/63f6eb34697b0120e68d279fe0e22e5ec3aba61b/src/M5EPD_Driver.cpp). 
 
 The data sheet is included in this [repository](./documentation).
 
@@ -43,11 +65,8 @@ The data sheet is included in this [repository](./documentation).
 - Sending 16-bit words in big endian byte order (as per data sheet)
 - Confirmed that SPI writes are synchronous
 - Reset pin is unused in M5Paper configuration
-- The reference driver is slow (writes 4 pixels per translation). This implementation uses bulk writes for speed.
 - UpdateMode.init always erases to white. There's no need to clear the memory buffer first.
 - Handling of chip-select is different between M5Paper implementation and data sheet. Current implementation matches the data sheet. which toggles it less often.
-- Rotation implemented
-- Implemented Commodetto PixelsOut for rendering with Poco
 - PixelsOut implements `continue` by unioning update areas
 
 ## Help
