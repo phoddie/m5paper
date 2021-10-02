@@ -359,8 +359,8 @@ class Display {		// implementation of PixelsOut
 		epd.select.write(0);
 		epd.spi.write(Uint16Array.of(0))
 	}
-	send(data) {
-		this.#epd.spi.write(data);
+	send(data, offset, byteLength) {
+		this.#epd.spi.write(new Uint8Array(data, offset, byteLength));
 	}
 	end() {
 		const epd = this.#epd;
