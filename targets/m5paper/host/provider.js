@@ -62,6 +62,50 @@ class Button {
 	}
 }
 
+class M5PaperTouch extends Touch {
+	constructor(options) {
+		let i2c, address = 0x14;
+		
+		// I2C address floats: try both
+		try {
+			i2c = new I2C({...device.I2C.default, address, hz: 100_000});
+			i2c.read(1);
+		}
+		catch {
+			address = 0x5D;
+			i2c = new I2C({...device.I2C.default, address, hz: 100_000});
+			i2c.read(1);
+		}
+		i2c.close();
+		
+		const o = {
+			i2c: {...device.I2C.default, address},
+			interrupt: {
+				io: Digital,
+				mode: Digital.Input,
+				pin: device.pin.touchInterrupt
+			}
+		};
+		if (options?.onSample)
+			o.onSample = options.onSample; 
+
+		super(o);
+	}
+	sample() {
+		const sample = super.sample();
+		if (!sample)
+			return;
+		// adjusts coordinates to match touch / EPD
+		for (let i = 0; i < sample.length; i++) {
+			const p = sample[i];
+			const t = p.x;
+			p.x = p.y;
+			p.y = 540 - t;
+		}
+		return sample;
+	}
+}
+
 const device = {
 	I2C: {
 		default: {
@@ -103,34 +147,7 @@ const device = {
 		epdBusy: 27
 	},
 	sensor: {
-		Touch: class {
-			constructor(options) {
-				let result;
-
-				const o = {
-					i2c: {...device.I2C.default},
-					interrupt: {
-						io: Digital,
-						mode: Digital.Input,
-						pin: device.pin.touchInterrupt
-					}
-				};
-				if (options?.onSample)
-					o.onSample = options.onSample; 
-
-				// I2C address floats: try both
-				try {
-					o.i2c.address = 0x14;
-					result = new Touch(o);
-				}
-				catch {
-					o.i2c.address = 0x5D;
-					result = new Touch(o);
-				}
-
-				return result;
-			}
-		},
+		Touch: M5PaperTouch,
 		HumidityTemperature: class {
 			constructor(options) {
 				return new HumidityTemperature({
