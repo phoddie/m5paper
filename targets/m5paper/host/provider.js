@@ -29,6 +29,7 @@ import SMBus from "embedded:io/smbus";
 import SPI from "embedded:io/spi";
 import Touch from "embedded:sensor/touch/GT911";
 import HumidityTemperature from "embedded:sensor/Humidity-Temperature/SHT3x"
+import RTC from "embedded:peripherals/RTC-NXP/PCF8563"
 
 class Button {
 	#io;
@@ -141,6 +142,14 @@ const device = {
 		}
 	},
 	peripheral: {
+		RTC: class {
+			constructor() {
+				return new RTC({
+					...device.I2C.default,
+					io: SMBus
+				});
+			}
+		},
 		button: {
 			A: class {
 				constructor(options) {

@@ -7,8 +7,16 @@ const touch = new device.sensor.Touch({
 });
 
 const humidityTemperature = new device.sensor.HumidityTemperature;
-trace(JSON.stringify(humidityTemperature.sample(), undefined , 3), "\n");
+trace(JSON.stringify(humidityTemperature.sample(), undefined, 3), "\n");
 humidityTemperature.close();
+
+const rtc = new device.peripheral.RTC;
+if (rtc.enabled)
+	trace(`RTC date/time is ${new Date(rtc.time)}\n`);
+else {
+	trace(`Setting RTC  date/time to: ${new Date}\n`);
+	rtc.time = Date.now();
+}
 
 for (let name in device.peripheral.button) {
 	new device.peripheral.button[name]({
