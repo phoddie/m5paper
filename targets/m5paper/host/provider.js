@@ -31,6 +31,7 @@ import Touch from "embedded:sensor/touch/GT911";
 import HumidityTemperature from "embedded:sensor/Humidity-Temperature/SHT3x"
 import RTC from "embedded:peripherals/RTC-NXP/PCF8563"
 
+//@@ Move Button class to common module
 class Button {
 	#io;
 	#onPush;
@@ -114,14 +115,6 @@ const device = {
 			clock: 22
 		}
 	},
-//	Serial: {
-//		default: {
-//			io: Serial,
-//			port: 1,
-//			receive: 3,
-//			transmit: 1
-//		}
-//	},
 	SPI: {
 		default: {
 			io: SPI,
@@ -131,12 +124,6 @@ const device = {
 			port: 2,		// VSPI_HOST
 		}
 	},
-//	Analog: {
-//		default: {
-//			io: Analog,
-//			pin: 33
-//		}
-//	},
 	io: {Analog, Digital, DigitalBank, I2C, PulseCount, PWM, Serial, SMBus, SPI},
 	pin: {
 		powerMain: 2,
