@@ -5,7 +5,7 @@
 		"$(MODDABLE)/modules/drivers/peripherals/pcf8563/manifest.json"
 	],
 	"modules": {
-		"embedded:sensor/touch/GT911": "./gt911",
+		"embedded:sensor/touch/GT911": "$(MODDABLE)/modules/drivers/sensors/gt911/*",
 		"it8951": "./it8951",
 		"setup/target": "./setup-target"
 	},
