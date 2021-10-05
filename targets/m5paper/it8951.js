@@ -99,6 +99,8 @@ class EPD {
 	_endian_type = IT8951_LDIMG_B_ENDIAN;
 	_pix_bpp = IT8951_4BPP;
 	_rotation = 0;
+	_updateArea = new Uint16Array(7);
+	_setArea = new Uint16Array(this._updateArea.buffer, 0, 5);
 
 	constructor() {
 		const Digital = device.io.Digital;
@@ -119,16 +121,19 @@ class EPD {
 			...device.SPI.default,
 			hz: 10_000_000
 		});
+		this.spi.buffer16 = new Uint8Array(2);
 		this.spi.write16 = function(value) {
-			this.write(Uint8Array.of(value >> 8, value & 0xFF));
+			const buffer = this.buffer16;
+			buffer[0] = value >> 8;
+			buffer[1] = value;
+			this.write(buffer);
 		}; 
 		this.spi.transfer16 = function(value) {
-			const buffer = Uint8Array.of(value >> 8, value & 0xFF);
+			const buffer = this.buffer16;
+			buffer[0] = value >> 8;
+			buffer[1] = value;
 			this.transfer(buffer);
 			return (buffer[0] << 8) | buffer[1];
-		}; 
-		this.spi.write32 = function(value) {
-			this.write(Uint8Array.of(value >> 24, value >> 16, value >> 8, value & 0xFF));
 		}; 
 
 		this.getSysInfo();
@@ -160,10 +165,11 @@ class EPD {
 	}
 	checkAFSR() {
 		const start = Date.now();
+		const info = new Array(1);
 		do { 
 			this.writeCommand(IT8951_TCON_REG_RD);
 			this.writeWord(IT8951_LUTAFSR);
-			const info = this.readWords(1);
+			this.readWords(info);
 			if (0 === info[0])
 				return;
 
@@ -199,23 +205,47 @@ class EPD {
 
 		this.checkAFSR();
 
-		let rotation = this._rotation, args;
-        if (!rotation)
-			args = Uint16Array.of(x, y, w, h, mode, this._tar_memaddr, this._tar_memaddr >> 16);
-		else if (1 === rotation)
-			args = Uint16Array.of(y, M5EPD_PANEL_H - w - x, h, w, mode, this._tar_memaddr, this._tar_memaddr >> 16);
-		else if (2 === rotation)
-			args = Uint16Array.of(M5EPD_PANEL_W - w - x, M5EPD_PANEL_H - h - y, w, h, mode, this._tar_memaddr, this._tar_memaddr >> 16);
-		else
-			args = Uint16Array.of(M5EPD_PANEL_W - h - y, x, h, w, mode, this._tar_memaddr, this._tar_memaddr >> 16);
+		const area = this._updateArea;
+		const rotation = this._rotation;
+        if (!rotation) {
+			area[0] = x;
+			area[1] = y;
+			area[2] = w;
+			area[3] = h;
+		}
+		else if (1 === rotation) {
+			area[0] = y;
+			area[1] = M5EPD_PANEL_H - w - x;
+			area[2] = h;
+			area[3] = w;
+		}
+		else if (2 === rotation) {
+			area[0] = M5EPD_PANEL_W - w - x;
+			area[1] = M5EPD_PANEL_H - h - y;
+			area[2] = w;
+			area[3] = h;
+		}
+		else {
+			area[0] = M5EPD_PANEL_W - h - y;
+			area[1] = x;
+			area[2] = h;
+			area[3] = w;
+		}
+		area[4] = mode;
+		area[5] = this._tar_memaddr;
+		area[6] = this._tar_memaddr >> 16;
 
-		this.writeArgs(IT8951_I80_CMD_DPY_BUF_AREA, args);
+		this.writeArgs(IT8951_I80_CMD_DPY_BUF_AREA, area);
 	}	
 	
 	setArea(x, y, w, h) {
-		const area = Uint16Array.of(
-			(this._endian_type << 8) | (this._pix_bpp << 4) | this._rotation,
-			x, y, w, h); 
+		const area = this._setArea;
+
+		area[0] = (this._endian_type << 8) | (this._pix_bpp << 4) | this._rotation;
+		area[1] = x; 
+		area[2] = y; 
+		area[3] = w; 
+		area[4] = h; 
 		this.writeArgs(IT8951_TCON_LD_IMG_AREA, area);
 	}
 	writeArgs(command, buffer) {
@@ -226,7 +256,7 @@ class EPD {
 		this.spi.write16(0x0000);
 		this.waitBusy();
 
-		for (let i = 0; i < buffer.length; i++) {
+		for (let i = 0, length = buffer.length; i < length; i++) {
 			this.spi.write16(buffer[i]);
 			this.waitBusy();
 		}
@@ -261,7 +291,7 @@ class EPD {
 	}
 	getSysInfo() {
     	this.writeCommand(IT8951_I80_CMD_GET_DEV_INFO);
-		const info = this.readWords(20);
+		const info = this.readWords(new Array(20));
 		const _tar_memaddr = (info[3] << 16) | info[2];
 		if (_tar_memaddr !== this._tar_memaddr)
 			trace(`unexpected _tar_memaddr value 0x${_tar_memaddr.toString(16)}\n`);
@@ -290,7 +320,7 @@ class EPD {
 				throw new Error("time out");
 		}
 	}
-	readWords(length) {
+	readWords(result) {
     	this.waitBusy();
     	this.select.write(0);
     	this.spi.write16(0x1000);
@@ -300,8 +330,7 @@ class EPD {
 		this.spi.transfer16(0);
     	this.waitBusy();
 
-		const result = new Array(length);
-		for (let i = 0; i < length; i++)
+		for (let i = 0, length = result.length; i < length; i++)
 			result[i] = this.spi.transfer16(0);
 
 		this.select.write(1);
@@ -357,7 +386,7 @@ class Display {		// implementation of PixelsOut
         epd.setArea(x, y, width, height);
 
 		epd.select.write(0);
-		epd.spi.write(Uint16Array.of(0))
+		epd.spi.write16(0);
 	}
 	send(data, offset, byteLength) {
 		this.#epd.spi.write(new Uint8Array(data, offset, byteLength));
@@ -369,7 +398,7 @@ class Display {		// implementation of PixelsOut
 		epd.writeCommand(IT8951_TCON_LD_IMG_END);
 
 		const area = this.#area;
-		epd.updateArea(area.x, area.y, area.width, area.height, UpdateMode.GC16);
+		epd.updateArea(area.x, area.y, area.width, area.height, UpdateMode.GLD16);
 
 		delete area.continue;
 	}
