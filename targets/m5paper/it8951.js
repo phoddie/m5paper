@@ -342,6 +342,7 @@ class EPD {
 class Display {		// implementation of PixelsOut
 	#epd = new EPD;
 	#area = {};
+	#updateMode = UpdateMode.GLD16;
 
 	constructor(options) {
 		this.#epd.setTargetMemoryAddress(this.#epd._tar_memaddr);	
@@ -351,7 +352,8 @@ class Display {		// implementation of PixelsOut
 		this.#epd = undefined;
 	}
 	configure(options) {
-		//@@ updateMode 
+		if (options.updateMode)
+			 this.#updateMode = UpdateMode[options.updateMode] ?? UpdateMode.GLD16;
 	}
 	begin(x, y, width, height) {
 		const epd = this.#epd, area = this.#area;
@@ -398,7 +400,7 @@ class Display {		// implementation of PixelsOut
 		epd.writeCommand(IT8951_TCON_LD_IMG_END);
 
 		const area = this.#area;
-		epd.updateArea(area.x, area.y, area.width, area.height, UpdateMode.GLD16);
+		epd.updateArea(area.x, area.y, area.width, area.height, this.#updateMode);
 
 		delete area.continue;
 	}
