@@ -339,13 +339,27 @@ class EPD {
 	}
 }
 
+const Filter = {
+	none: undefined,
+	negative: Uint8Array.of(15, 14, 13, 12, 11, 10, 9, 8, 7, 6, 5, 4, 3, 2, 1, 0),
+	posterize: Uint8Array.of(0, 0, 0, 0, 3, 3, 3, 3, 7, 7, 7, 7, 15, 15, 15, 15),
+	monochrome: Uint8Array.of(0, 0, 0, 0, 0, 0, 0, 0, 15, 15, 15, 15, 15, 15, 15, 15),
+	bright: Uint8Array.of(0, 2, 3, 4, 5, 7, 8, 9, 11, 12, 13, 14, 15, 15, 15, 15),
+	contrast: Uint8Array.of(0, 0, 1, 2, 3, 4, 5, 6, 9, 10, 11, 12, 13, 14, 15, 15)
+};
+Object.freeze(Filter, true);
+
 class Display {		// implementation of PixelsOut
 	#epd = new EPD;
 	#area = {};
 	#updateMode = UpdateMode.GLD16;
+	#filter = Filter.none;
+	#buffer = new Uint8Array(1024);
 
 	constructor(options) {
-		this.#epd.setTargetMemoryAddress(this.#epd._tar_memaddr);	
+		this.#epd.setTargetMemoryAddress(this.#epd._tar_memaddr);
+
+		this.#buffer.position = 0;
 	}
 	close() {
 		this.#epd?.close();
@@ -354,6 +368,9 @@ class Display {		// implementation of PixelsOut
 	configure(options) {
 		if (options.updateMode)
 			 this.#updateMode = UpdateMode[options.updateMode] ?? UpdateMode.GLD16;
+
+		if (options.filter)
+			 this.#filter = Filter[options.filter];
 	}
 	begin(x, y, width, height) {
 		const epd = this.#epd, area = this.#area;
@@ -390,11 +407,32 @@ class Display {		// implementation of PixelsOut
 		epd.select.write(0);
 		epd.spi.write16(0);
 	}
-	send(data, offset, byteLength) {
-		this.#epd.spi.write(new Uint8Array(data, offset, byteLength));
+	send(src, offset, byteLength) {
+		const filter = this.#filter, buffer = this.#buffer;
+
+		while (byteLength) {
+			let use = byteLength;
+			if (use > 1024 - buffer.position)
+				use = 1024 - buffer.position;
+
+			applyFilter(filter, src, offset, use, buffer, buffer.position);
+			
+			byteLength -= use;
+			offset += use;
+			buffer.position += use;
+			if (1024 === buffer.position) {
+				this.#epd.spi.write(buffer);
+				buffer.position = 0;
+			}
+		}
 	}
 	end() {
 		const epd = this.#epd;
+
+		if (this.#buffer.position) {
+			this.#epd.spi.write(new Uint8Array(this.#buffer, 0, this.#buffer.position));
+			this.#buffer.position = 0;
+		}
 
 		epd.select.write(1);
 		epd.writeCommand(IT8951_TCON_LD_IMG_END);
@@ -453,5 +491,13 @@ class Display {		// implementation of PixelsOut
 		return (pixels + 1) >> 1;
 	}
 }
+
+function applyFilter(filter, src, offset, byteLength, dst, position) @ "xs_applyFilter"; 
+
+//function applyFilter(filter, src, offset, byteLength, dst, position) {
+//	src = new Uint8Array(src, offset, byteLength);
+//	dst.set(src, position)
+//}
+
 
 export default Display 
