@@ -1,11 +1,11 @@
 # Moddable SDK support for M5Paper
-Updated October 1, 2021
+Updated October 18, 2021
 
 This is experimental. The display fundamentals are working. Feel free to help.
 
 The Moddable SDK examples that do not depend on a display generally seem to work as-is.
 
-This porting effort depends on the new APIs standardized by [Ecma-419](https://419.ecma-international.org). This implementation depends on fixes in the latest Moddable SDK.
+This porting effort depends on the new APIs standardized by [Ecma-419](https://419.ecma-international.org). This implementation depends on fixes in the latest Moddable SDK. Instructions for updating the Moddable SDK are in [https://github.com/Moddable-OpenSource/moddable/blob/public/documentation/Moddable%20SDK%20-%20Getting%20Started.md#table-of-contents).
 
 ## Setup, build, run
 
@@ -50,6 +50,28 @@ Memory use is also quite low. There is no frame buffer in ESP32 memory: rendered
 Using the `continue` feature of Poco, it is possible to update several areas of the screen while only refreshing the EPD panel once. This allows for very efficient updates -- the least possible amount of memory is transferred and only one long panel flash occurs. The Piu balls example is a good way to see this in action - only the ball images (not the empty space around them) are transferred to the display and only the rectangle that encloses the four balls flashes on the display panel.
 
 The rotation feature of the display controller is supported, allowing no-overhead rotation at 0, 90, 180, and 270 rotations.
+
+### Update Modes
+The display controller supports several different [update modes](https://github.com/phoddie/m5paper/blob/f0b79e0a0579c0dbdb1bb4445dc6acf501403681/targets/m5paper/it8951.js#L82-L93). The optimal mode depends on the content being drawn. The mode may be changed on each frame. The default mode is `GLD16`. To change the mode:
+
+```js
+screen.config({updateMode: "A2"});
+```
+
+### Image Filters
+The display driver supports several different [pixel filters](https://github.com/phoddie/m5paper/blob/4110701c8084c07d7f777a44e17e970ffd18f729/targets/m5paper/it8951.js#L342-L349). These filter adjust the luminance of the pixels. The are useful for optimizing image and applying special effects. The default filter is "none". The filter may be changed on each frame. To change the filter:
+
+```js
+screen.config({filter: "negative"});
+```
+
+The filters are a `Uint8Array` of 16 values. To set your own filter, instead of using one of the built-in filters:
+
+```js
+let filter = new Uint8Array(16);
+// code here to initialize filter
+screen.config({filter});
+```
 
 ### Notes
 

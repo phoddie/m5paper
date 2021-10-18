@@ -370,7 +370,7 @@ class Display {		// implementation of PixelsOut
 			 this.#updateMode = UpdateMode[options.updateMode] ?? UpdateMode.GLD16;
 
 		if (options.filter)
-			 this.#filter = Filter[options.filter];
+			 this.#filter = ("string" === typeof options.filter) ? Filter[options.filter] : options.filter;
 	}
 	begin(x, y, width, height) {
 		const epd = this.#epd, area = this.#area;
