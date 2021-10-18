@@ -147,10 +147,13 @@ const device = {
 	},
 	peripheral: {
 		RTC: class {
-			constructor() {
+			constructor(options) {
 				return new RTC({
-					...device.I2C.default,
-					io: SMBus
+					...options,
+					rtc: {
+						...device.I2C.default,
+						io: SMBus
+					}
 				});
 			}
 		},
