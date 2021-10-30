@@ -358,8 +358,6 @@ class Display {		// implementation of PixelsOut
 
 	constructor(options) {
 		this.#epd.setTargetMemoryAddress(this.#epd._tar_memaddr);
-
-		this.#buffer.position = 0;
 	}
 	close() {
 		this.#epd?.close();
@@ -406,33 +404,35 @@ class Display {		// implementation of PixelsOut
 
 		epd.select.write(0);
 		epd.spi.write16(0);
+
+		this.#buffer.position = 0;
 	}
 	send(src, offset, byteLength) {
 		const filter = this.#filter, buffer = this.#buffer;
+		let position = buffer.position;
 
 		while (byteLength) {
 			let use = byteLength;
-			if (use > 1024 - buffer.position)
-				use = 1024 - buffer.position;
+			if (use > 1024 - position)
+				use = 1024 - position;
 
-			applyFilter(filter, src, offset, use, buffer, buffer.position);
-			
+			applyFilter(filter, src, offset, use, buffer, position);
+
 			byteLength -= use;
 			offset += use;
-			buffer.position += use;
-			if (1024 === buffer.position) {
+			position += use;
+			if (1024 === position) {
 				this.#epd.spi.write(buffer);
-				buffer.position = 0;
+				position = 0;
 			}
 		}
+		buffer.position = position;
 	}
 	end() {
 		const epd = this.#epd;
 
-		if (this.#buffer.position) {
-			this.#epd.spi.write(new Uint8Array(this.#buffer, 0, this.#buffer.position));
-			this.#buffer.position = 0;
-		}
+		if (this.#buffer.position)
+			epd.spi.write(new Uint8Array(this.#buffer, 0, this.#buffer.position));
 
 		epd.select.write(1);
 		epd.writeCommand(IT8951_TCON_LD_IMG_END);
@@ -493,11 +493,5 @@ class Display {		// implementation of PixelsOut
 }
 
 function applyFilter(filter, src, offset, byteLength, dst, position) @ "xs_applyFilter"; 
-
-//function applyFilter(filter, src, offset, byteLength, dst, position) {
-//	src = new Uint8Array(src, offset, byteLength);
-//	dst.set(src, position)
-//}
-
 
 export default Display 
